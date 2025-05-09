@@ -17,6 +17,7 @@ class Lokasi extends Model
         'latitude',
         'longitude',
         'radius', // dalam meter
+        'toleransi_keterlambatan',
         'status', // aktif atau nonaktif
         'keterangan',
     ];

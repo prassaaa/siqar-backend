@@ -131,9 +131,23 @@ class AbsensiController extends Controller
                 ], 400);
             }
 
-            // Check if late
+            // Check if late with tolerance
             $jamMasuk = Carbon::parse($lokasi->jam_masuk ?? '08:00:00');
-            $terlambat = $now->gt($jamMasuk);
+
+            // Tambahkan toleransi keterlambatan (misalnya 15 menit)
+            $toleransiMenit = 15; // Sesuaikan sesuai kebijakan perusahaan
+            $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
+
+            // Tentukan status terlambat jika melebihi jam masuk + toleransi
+            $terlambat = $now->gt($jamMasukDenganToleransi);
+
+            // Log untuk debugging
+            \Log::info("Absensi Check:", [
+                'jam_sekarang' => $now->format('H:i:s'),
+                'jam_masuk' => $jamMasuk->format('H:i:s'),
+                'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
+                'terlambat' => $terlambat ? 'Ya' : 'Tidak'
+            ]);
 
             if ($absensi) {
                 // Update existing record
@@ -198,6 +212,13 @@ class AbsensiController extends Controller
                     'waktu_keluar' => $absensi->waktu_keluar ? $absensi->waktu_keluar->format('H:i:s') : null,
                     'status' => $absensi->status,
                     'lokasi' => $lokasi->nama_lokasi,
+                ],
+                'debug_info' => [
+                    'jam_sekarang' => $now->format('H:i:s'),
+                    'jam_masuk_asli' => $lokasi->jam_masuk ?? '08:00:00',
+                    'jam_masuk_dengan_toleransi' => isset($jamMasukDenganToleransi) ? $jamMasukDenganToleransi->format('H:i:s') : null,
+                    'toleransi_menit' => $toleransiMenit ?? 0,
+                    'terlambat' => $terlambat ? 'Ya' : 'Tidak'
                 ]
             ]
         ]);
@@ -318,6 +339,20 @@ class AbsensiController extends Controller
             $lokasi = Lokasi::find($qrCode->lokasi_id);
         }
 
+        // Tambahkan informasi jam masuk dan toleransi jika ada
+        $jamMasukInfo = null;
+        if ($lokasi && isset($lokasi->jam_masuk)) {
+            $jamMasuk = Carbon::parse($lokasi->jam_masuk);
+            $toleransiMenit = 15; // Sesuaikan dengan nilai di atas
+            $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
+
+            $jamMasukInfo = [
+                'jam_masuk' => $jamMasuk->format('H:i:s'),
+                'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
+                'toleransi_menit' => $toleransiMenit,
+            ];
+        }
+
         return response()->json([
             'status' => true,
             'data' => [
@@ -335,6 +370,13 @@ class AbsensiController extends Controller
                     'nama_lokasi' => $lokasi->nama_lokasi,
                     'alamat' => $lokasi->alamat,
                     'radius' => $lokasi->radius,
+                    'jam_masuk_info' => $jamMasukInfo,
+                ] : null,
+                'qrcode' => $qrCode ? [
+                    'id' => $qrCode->id,
+                    'deskripsi' => $qrCode->deskripsi,
+                    'waktu_mulai' => $qrCode->waktu_mulai,
+                    'waktu_berakhir' => $qrCode->waktu_berakhir,
                 ] : null,
             ]
         ]);
@@ -516,6 +558,23 @@ class AbsensiController extends Controller
         return response()->json([
             'status' => true,
             'data' => $reportData
+        ]);
+    }
+
+    /**
+     * Add a server time endpoint for debugging
+     */
+    public function serverTime()
+    {
+        $now = Carbon::now();
+        return response()->json([
+            'status' => true,
+            'data' => [
+                'time' => $now->format('H:i:s'),
+                'date' => $now->format('Y-m-d'),
+                'timezone' => $now->timezone->getName(),
+                'timestamp' => $now->timestamp,
+            ]
         ]);
     }
 
