@@ -11,9 +11,11 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use SimpleSoftwareIO\QrCode\Facades\QrCode as QrCodeGenerator;
 use Illuminate\Support\Str;
 use Filament\Notifications\Notification;
+use chillerlan\QRCode\QRCode as QRGenerator;
+use chillerlan\QRCode\QROptions;
+use Illuminate\Support\Facades\Log;
 
 class QRCodeResource extends Resource
 {
@@ -98,7 +100,7 @@ class QRCodeResource extends Resource
                         'aktif' => 'Aktif',
                         'nonaktif' => 'Nonaktif',
                     ]),
-                Tables\Filters\SelectFilter::make('lokasi   ')
+                Tables\Filters\SelectFilter::make('lokasi')
                     ->label('Lokasi')
                     ->options(function () {
                         return Lokasi::pluck('nama_lokasi', '.id')->toArray();
@@ -110,29 +112,53 @@ class QRCodeResource extends Resource
                     ->icon('heroicon-o-qr-code')
                     ->color('success')
                     ->action(function (QRCode $record) {
-                        // Generate a unique code
-                        $uniqueCode = Str::random(16);
+                        try {
+                            // Generate a unique code
+                            $uniqueCode = Str::random(16);
 
-                        // Save the code to the record
-                        $record->kode = $uniqueCode;
-                        $record->dibuat_oleh = auth()->id();
-                        $record->save();
+                            // Save the code to the record
+                            $record->kode = $uniqueCode;
+                            $record->dibuat_oleh = auth()->id();
+                            $record->save();
 
-                        // Generate QR Code image
-                        $qrCode = QrCodeGenerator::format('png')
-                            ->size(300)
-                            ->errorCorrection('H')
-                            ->generate($uniqueCode);
+                            // Generate QR Code image
+                            $options = new QROptions([
+                                'outputType' => QRGenerator::OUTPUT_IMAGE_PNG,
+                                'eccLevel' => QRGenerator::ECC_H,
+                                'scale' => 10,
+                                'imageBase64' => false,
+                            ]);
 
-                        // Save QR Code to storage
-                        $path = 'public/qrcodes/qrcode-' . $record->id . '.png';
-                        \Storage::put($path, $qrCode);
+                            $qrCode = (new QRGenerator($options))->render($uniqueCode);
 
-                        // Send notification
-                        Notification::make()
-                            ->title('QR Code Berhasil Dibuat')
-                            ->success()
-                            ->send();
+                            // Simpan langsung ke direktori public
+                            $directory = public_path('qrcodes');
+                            if (!file_exists($directory)) {
+                                mkdir($directory, 0755, true);
+                            }
+
+                            $filePath = $directory . DIRECTORY_SEPARATOR . 'qrcode-' . $record->id . '.png';
+                            $success = file_put_contents($filePath, $qrCode);
+
+                            if ($success) {
+                                Log::info("QR Code berhasil disimpan di {$filePath}");
+                            } else {
+                                Log::error("Gagal menyimpan QR Code di {$filePath}");
+                            }
+
+                            // Send notification
+                            Notification::make()
+                                ->title('QR Code Berhasil Dibuat')
+                                ->success()
+                                ->send();
+                        } catch (\Exception $e) {
+                            Log::error("Error saat membuat QR Code: " . $e->getMessage());
+                            Notification::make()
+                                ->title('Error saat membuat QR Code')
+                                ->danger()
+                                ->body($e->getMessage())
+                                ->send();
+                        }
                     })
                     ->visible(fn (QRCode $record): bool => empty($record->kode)),
                 Tables\Actions\Action::make('view_qr')

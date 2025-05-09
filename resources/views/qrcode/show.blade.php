@@ -89,24 +89,24 @@
             <h1>SIQAR</h1>
             <p>Sistem QR Absensi Responsif</p>
         </div>
-        
+
         <h2>QR Code Absensi</h2>
         <div class="qr-container">
             <img src="{{ $qrImageUrl }}" alt="QR Code Absensi" class="qr-image">
         </div>
-        
+
         <div class="info">
             <p><strong>Deskripsi:</strong> {{ $qrCode->deskripsi }}</p>
             <p><strong>Tanggal:</strong> {{ $qrCode->tanggal->format('d F Y') }}</p>
             <p><strong>Waktu:</strong> {{ \Carbon\Carbon::parse($qrCode->waktu_mulai)->format('H:i') }} - {{ \Carbon\Carbon::parse($qrCode->waktu_berakhir)->format('H:i') }}</p>
             <p>
-                <strong>Status:</strong> 
+                <strong>Status:</strong>
                 <span class="status {{ $qrCode->status == 'aktif' ? 'status-active' : 'status-inactive' }}">
                     {{ $qrCode->status == 'aktif' ? 'Aktif' : 'Nonaktif' }}
                 </span>
             </p>
         </div>
-        
+
         <div class="footer">
             <p>&copy; {{ date('Y') }} SIQAR - Sistem QR Absensi Responsif.</p>
             <p>Scan QR code ini menggunakan aplikasi SIQAR untuk melakukan absensi.</p>
