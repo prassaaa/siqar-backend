@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Auth\User as Authenticatable;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Filament\Models\Contracts\FilamentUser;
@@ -14,8 +14,7 @@ class Pengguna extends Authenticatable implements FilamentUser, HasName
 {
     use HasApiTokens, HasFactory, Notifiable;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'pengguna';
+    protected $table = 'pengguna';
 
     /**
      * The attributes that are mass assignable.
@@ -74,7 +73,7 @@ class Pengguna extends Authenticatable implements FilamentUser, HasName
     {
         return $this->peran === 'admin' && $this->status === 'aktif';
     }
-    
+
     /**
      * Check if user can access a specific panel
      *

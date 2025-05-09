@@ -20,25 +20,25 @@ class LokasiController extends Controller
 
         // Build query
         $query = Lokasi::query();
-        
+
         if ($status) {
             $query->where('status', $status);
         } else {
             $query->where('status', 'aktif'); // Default to active locations only
         }
-        
+
         if ($search) {
             $query->where(function ($query) use ($search) {
                 $query->where('nama_lokasi', 'like', "%$search%")
                     ->orWhere('alamat', 'like', "%$search%");
             });
         }
-        
+
         // Get paginated results
         $perPage = $request->per_page ?? 10;
         $lokasi = $query->orderBy('nama_lokasi', 'asc')
             ->paginate($perPage);
-        
+
         // Transform data
         $result = $lokasi->map(function ($item) {
             return [
@@ -73,7 +73,7 @@ class LokasiController extends Controller
     public function show($id)
     {
         $lokasi = Lokasi::find($id);
-        
+
         if (!$lokasi) {
             return response()->json([
                 'status' => false,
@@ -105,7 +105,7 @@ class LokasiController extends Controller
     {
         // Only allow admin to access
         $pengguna = $request->user();
-        
+
         if ($pengguna->peran != 'admin') {
             return response()->json([
                 'status' => false,
@@ -167,7 +167,7 @@ class LokasiController extends Controller
     {
         // Only allow admin to access
         $pengguna = $request->user();
-        
+
         if ($pengguna->peran != 'admin') {
             return response()->json([
                 'status' => false,
@@ -177,7 +177,7 @@ class LokasiController extends Controller
 
         // Find location
         $lokasi = Lokasi::find($id);
-        
+
         if (!$lokasi) {
             return response()->json([
                 'status' => false,
@@ -207,31 +207,31 @@ class LokasiController extends Controller
         if ($request->has('nama_lokasi')) {
             $lokasi->nama_lokasi = $request->nama_lokasi;
         }
-        
+
         if ($request->has('alamat')) {
             $lokasi->alamat = $request->alamat;
         }
-        
+
         if ($request->has('latitude')) {
             $lokasi->latitude = $request->latitude;
         }
-        
+
         if ($request->has('longitude')) {
             $lokasi->longitude = $request->longitude;
         }
-        
+
         if ($request->has('radius')) {
             $lokasi->radius = $request->radius;
         }
-        
+
         if ($request->has('status')) {
             $lokasi->status = $request->status;
         }
-        
+
         if ($request->has('keterangan')) {
             $lokasi->keterangan = $request->keterangan;
         }
-        
+
         $lokasi->save();
 
         return response()->json([
@@ -259,7 +259,7 @@ class LokasiController extends Controller
     {
         // Only allow admin to access
         $pengguna = $request->user();
-        
+
         if ($pengguna->peran != 'admin') {
             return response()->json([
                 'status' => false,
@@ -269,7 +269,7 @@ class LokasiController extends Controller
 
         // Find location
         $lokasi = Lokasi::find($id);
-        
+
         if (!$lokasi) {
             return response()->json([
                 'status' => false,

@@ -20,11 +20,11 @@ class QRCodeResource extends Resource
     protected static ?string $model = QRCode::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-qr-code';
-    
+
     protected static ?string $navigationGroup = 'Manajemen Absensi';
-    
+
     protected static ?string $navigationLabel = 'QR Code';
-    
+
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
@@ -98,10 +98,10 @@ class QRCodeResource extends Resource
                         'aktif' => 'Aktif',
                         'nonaktif' => 'Nonaktif',
                     ]),
-                Tables\Filters\SelectFilter::make('lokasi_id')
+                Tables\Filters\SelectFilter::make('lokasi   ')
                     ->label('Lokasi')
                     ->options(function () {
-                        return Lokasi::pluck('nama_lokasi', '_id')->toArray();
+                        return Lokasi::pluck('nama_lokasi', '.id')->toArray();
                     }),
             ])
             ->actions([
@@ -112,22 +112,22 @@ class QRCodeResource extends Resource
                     ->action(function (QRCode $record) {
                         // Generate a unique code
                         $uniqueCode = Str::random(16);
-                        
+
                         // Save the code to the record
                         $record->kode = $uniqueCode;
                         $record->dibuat_oleh = auth()->id();
                         $record->save();
-                        
+
                         // Generate QR Code image
                         $qrCode = QrCodeGenerator::format('png')
                             ->size(300)
                             ->errorCorrection('H')
                             ->generate($uniqueCode);
-                            
+
                         // Save QR Code to storage
                         $path = 'public/qrcodes/qrcode-' . $record->id . '.png';
                         \Storage::put($path, $qrCode);
-                        
+
                         // Send notification
                         Notification::make()
                             ->title('QR Code Berhasil Dibuat')

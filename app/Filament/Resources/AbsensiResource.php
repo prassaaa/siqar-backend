@@ -23,11 +23,11 @@ class AbsensiResource extends Resource
     protected static ?string $model = Absensi::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-clipboard-document-check';
-    
+
     protected static ?string $navigationGroup = 'Manajemen Absensi';
-    
+
     protected static ?string $navigationLabel = 'Absensi';
-    
+
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
@@ -162,12 +162,12 @@ class AbsensiResource extends Resource
                                     'keterangan' => $record->keterangan,
                                 ];
                             });
-                            
+
                             $pdf = Pdf::loadView('exports.absensi', [
                                 'records' => $data,
                                 'tanggal_cetak' => Carbon::now()->format('d-m-Y H:i'),
                             ]);
-                            
+
                             return response()->streamDownload(
                                 fn () => print($pdf->output()),
                                 'laporan-absensi-' . Carbon::now()->format('d-m-Y') . '.pdf'
@@ -192,7 +192,7 @@ class AbsensiResource extends Resource
             'edit' => Pages\EditAbsensi::route('/{record}/edit'),
         ];
     }
-    
+
     public static function getWidgets(): array
     {
         return [

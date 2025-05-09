@@ -3,14 +3,13 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use MongoDB\Laravel\Eloquent\Model;
+use Illuminate\Database\Eloquent\Model;
 
 class Absensi extends Model
 {
     use HasFactory;
 
-    protected $connection = 'mongodb';
-    protected $collection = 'absensi';
+    protected $table = 'absensi';
 
     protected $fillable = [
         'karyawan_id',
@@ -26,14 +25,13 @@ class Absensi extends Model
         'latitude_keluar',
         'longitude_keluar',
         'keterangan',
+        'bukti',
     ];
 
     protected $casts = [
         'tanggal' => 'date',
         'waktu_masuk' => 'datetime',
         'waktu_keluar' => 'datetime',
-        'lokasi_masuk' => 'array',
-        'lokasi_keluar' => 'array',
     ];
 
     public function karyawan()

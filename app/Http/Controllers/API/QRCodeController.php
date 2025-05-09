@@ -10,6 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use SimpleSoftwareIO\QrCode\Facades\QrCode as QrCodeGenerator;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Storage;
 
 class QRCodeController extends Controller
 {
@@ -67,7 +68,7 @@ class QRCodeController extends Controller
         // Check time validity
         $valid = true;
         $message = 'QR Code valid dan dapat digunakan';
-        
+
         if ($now->lt($startTime) || $now->gt($endTime)) {
             $valid = false;
             $message = 'QR Code hanya berlaku dari ' . $startTime->format('H:i') . ' sampai ' . $endTime->format('H:i');
@@ -75,7 +76,7 @@ class QRCodeController extends Controller
 
         // Get location data
         $lokasi = Lokasi::find($qrCode->lokasi_id);
-        
+
         return response()->json([
             'status' => true,
             'message' => $message,
@@ -107,7 +108,7 @@ class QRCodeController extends Controller
     {
         // Only allow karyawan to access
         $pengguna = $request->user();
-        
+
         if ($pengguna->peran != 'karyawan') {
             return response()->json([
                 'status' => false,
@@ -118,7 +119,7 @@ class QRCodeController extends Controller
         // Get today's active QR Codes
         $today = Carbon::today();
         $now = Carbon::now();
-        
+
         $qrCode = QRCode::where('tanggal', $today)
             ->where('status', 'aktif')
             ->where('waktu_mulai', '<=', $now)
@@ -134,7 +135,7 @@ class QRCodeController extends Controller
 
         // Get location data
         $lokasi = Lokasi::find($qrCode->lokasi_id);
-        
+
         return response()->json([
             'status' => true,
             'message' => 'QR Code aktif ditemukan',
@@ -166,7 +167,7 @@ class QRCodeController extends Controller
     {
         // Only allow admin to access
         $pengguna = $request->user();
-        
+
         if ($pengguna->peran != 'admin') {
             return response()->json([
                 'status' => false,
@@ -179,7 +180,7 @@ class QRCodeController extends Controller
             'tanggal' => 'required|date|after_or_equal:today',
             'waktu_mulai' => 'required|date_format:H:i',
             'waktu_berakhir' => 'required|date_format:H:i|after:waktu_mulai',
-            'lokasi_id' => 'required|exists:mongodb.lokasi,_id',
+            'lokasi_id' => 'required|exists:lokasi,id',
         ]);
 
         if ($validator->fails()) {
@@ -192,7 +193,7 @@ class QRCodeController extends Controller
 
         // Generate a unique code
         $uniqueCode = Str::random(16);
-        
+
         // Create QR Code record
         $qrCode = QRCode::create([
             'kode' => $uniqueCode,
@@ -210,11 +211,11 @@ class QRCodeController extends Controller
             ->size(300)
             ->errorCorrection('H')
             ->generate($uniqueCode);
-        
+
         // Save QR Code to storage
         $path = 'public/qrcodes/qrcode-' . $qrCode->id . '.png';
-        \Storage::put($path, $qrImage);
-        
+        Storage::put($path, $qrImage);
+
         // Get location data
         $lokasi = Lokasi::find($request->lokasi_id);
 
@@ -248,7 +249,7 @@ class QRCodeController extends Controller
     {
         // Only allow admin to access
         $pengguna = $request->user();
-        
+
         if ($pengguna->peran != 'admin') {
             return response()->json([
                 'status' => false,
@@ -264,22 +265,22 @@ class QRCodeController extends Controller
 
         // Build query
         $query = QRCode::whereBetween('tanggal', [$tanggalMulai->format('Y-m-d'), $tanggalAkhir->format('Y-m-d')]);
-        
+
         if ($status) {
             $query->where('status', $status);
         }
-        
+
         if ($lokasiId) {
             $query->where('lokasi_id', $lokasiId);
         }
-        
+
         // Get paginated results
         $perPage = $request->per_page ?? 10;
         $qrCodes = $query->orderBy('tanggal', 'desc')
             ->orderBy('waktu_mulai', 'desc')
             ->with('lokasi')
             ->paginate($perPage);
-        
+
         // Transform data
         $result = $qrCodes->map(function ($item) {
             return [
@@ -319,7 +320,7 @@ class QRCodeController extends Controller
     {
         // Only allow admin to access
         $pengguna = $request->user();
-        
+
         if ($pengguna->peran != 'admin') {
             return response()->json([
                 'status' => false,
@@ -329,7 +330,7 @@ class QRCodeController extends Controller
 
         // Find QR Code
         $qrCode = QRCode::find($id);
-        
+
         if (!$qrCode) {
             return response()->json([
                 'status' => false,

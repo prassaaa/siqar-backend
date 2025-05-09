@@ -10,7 +10,7 @@ use App\Models\QRCode;
 use App\Models\Lokasi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class AbsensiController extends Controller
 {
@@ -36,7 +36,7 @@ class AbsensiController extends Controller
 
         // Get authenticated user
         $pengguna = $request->user();
-        
+
         // Check if user is karyawan
         if ($pengguna->peran != 'karyawan') {
             return response()->json([
@@ -44,10 +44,10 @@ class AbsensiController extends Controller
                 'message' => 'Hanya karyawan yang dapat melakukan absensi',
             ], 403);
         }
-        
+
         // Get karyawan data
         $karyawan = Karyawan::where('pengguna_id', $pengguna->id)->first();
-        
+
         if (!$karyawan) {
             return response()->json([
                 'status' => false,
@@ -91,7 +91,7 @@ class AbsensiController extends Controller
 
         // Check location
         $lokasi = Lokasi::find($qrCode->lokasi_id);
-        
+
         if (!$lokasi) {
             return response()->json([
                 'status' => false,
@@ -101,9 +101,9 @@ class AbsensiController extends Controller
 
         // Calculate distance between user location and attendance location
         $distance = $this->calculateDistance(
-            $request->latitude, 
-            $request->longitude, 
-            $lokasi->latitude, 
+            $request->latitude,
+            $request->longitude,
+            $lokasi->latitude,
             $lokasi->longitude
         );
 
@@ -122,7 +122,7 @@ class AbsensiController extends Controller
             ->first();
 
         $terlambat = false;
-        
+
         if ($request->tipe == 'masuk') {
             if ($absensi && $absensi->waktu_masuk) {
                 return response()->json([
@@ -130,11 +130,11 @@ class AbsensiController extends Controller
                     'message' => 'Anda sudah melakukan absensi masuk hari ini',
                 ], 400);
             }
-            
+
             // Check if late
-            $jamMasuk = Carbon::parse($qrCode->lokasi->jam_masuk ?? '08:00:00');
+            $jamMasuk = Carbon::parse($lokasi->jam_masuk ?? '08:00:00');
             $terlambat = $now->gt($jamMasuk);
-            
+
             if ($absensi) {
                 // Update existing record
                 $absensi->qrcode_id = $qrCode->id;
@@ -157,11 +157,11 @@ class AbsensiController extends Controller
                     'status' => $terlambat ? 'terlambat' : 'hadir',
                 ]);
             }
-            
-            $message = $terlambat ? 
-                'Absensi masuk berhasil, tetapi Anda terlambat!' : 
+
+            $message = $terlambat ?
+                'Absensi masuk berhasil, tetapi Anda terlambat!' :
                 'Absensi masuk berhasil!';
-                
+
         } else { // keluar
             if (!$absensi) {
                 return response()->json([
@@ -169,21 +169,21 @@ class AbsensiController extends Controller
                     'message' => 'Anda belum melakukan absensi masuk hari ini',
                 ], 400);
             }
-            
+
             if ($absensi->waktu_keluar) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Anda sudah melakukan absensi keluar hari ini',
                 ], 400);
             }
-            
+
             // Update record
             $absensi->waktu_keluar = $now;
             $absensi->lokasi_keluar = $lokasi->nama_lokasi;
             $absensi->latitude_keluar = $request->latitude;
             $absensi->longitude_keluar = $request->longitude;
             $absensi->save();
-            
+
             $message = 'Absensi keluar berhasil!';
         }
 
@@ -210,7 +210,7 @@ class AbsensiController extends Controller
     {
         // Get authenticated user
         $pengguna = $request->user();
-        
+
         // Check if user is karyawan
         if ($pengguna->peran != 'karyawan') {
             return response()->json([
@@ -218,10 +218,10 @@ class AbsensiController extends Controller
                 'message' => 'Hanya karyawan yang dapat melihat riwayat absensi',
             ], 403);
         }
-        
+
         // Get karyawan data
         $karyawan = Karyawan::where('pengguna_id', $pengguna->id)->first();
-        
+
         if (!$karyawan) {
             return response()->json([
                 'status' => false,
@@ -237,16 +237,16 @@ class AbsensiController extends Controller
         // Build query
         $query = Absensi::where('karyawan_id', $karyawan->id)
             ->whereBetween('tanggal', [$tanggalMulai->format('Y-m-d'), $tanggalAkhir->format('Y-m-d')]);
-        
+
         if ($status) {
             $query->where('status', $status);
         }
-        
+
         // Get paginated results
         $perPage = $request->per_page ?? 10;
         $absensi = $query->orderBy('tanggal', 'desc')
             ->paginate($perPage);
-        
+
         // Transform data
         $result = $absensi->map(function ($item) {
             return [
@@ -283,7 +283,7 @@ class AbsensiController extends Controller
     {
         // Get authenticated user
         $pengguna = $request->user();
-        
+
         // Check if user is karyawan
         if ($pengguna->peran != 'karyawan') {
             return response()->json([
@@ -291,10 +291,10 @@ class AbsensiController extends Controller
                 'message' => 'Hanya karyawan yang dapat melihat status absensi',
             ], 403);
         }
-        
+
         // Get karyawan data
         $karyawan = Karyawan::where('pengguna_id', $pengguna->id)->first();
-        
+
         if (!$karyawan) {
             return response()->json([
                 'status' => false,
@@ -307,12 +307,12 @@ class AbsensiController extends Controller
         $absensi = Absensi::where('karyawan_id', $karyawan->id)
             ->where('tanggal', $today)
             ->first();
-        
+
         // Get active QR Code for today
         $qrCode = QRCode::where('tanggal', $today)
             ->where('status', 'aktif')
             ->first();
-        
+
         $lokasi = null;
         if ($qrCode) {
             $lokasi = Lokasi::find($qrCode->lokasi_id);
@@ -362,7 +362,7 @@ class AbsensiController extends Controller
 
         // Get authenticated user
         $pengguna = $request->user();
-        
+
         // Check if user is karyawan
         if ($pengguna->peran != 'karyawan') {
             return response()->json([
@@ -370,10 +370,10 @@ class AbsensiController extends Controller
                 'message' => 'Hanya karyawan yang dapat mengajukan izin/sakit',
             ], 403);
         }
-        
+
         // Get karyawan data
         $karyawan = Karyawan::where('pengguna_id', $pengguna->id)->first();
-        
+
         if (!$karyawan) {
             return response()->json([
                 'status' => false,
@@ -386,7 +386,7 @@ class AbsensiController extends Controller
         $absensi = Absensi::where('karyawan_id', $karyawan->id)
             ->where('tanggal', $tanggal)
             ->first();
-        
+
         if ($absensi) {
             return response()->json([
                 'status' => false,
@@ -432,23 +432,23 @@ class AbsensiController extends Controller
     {
         // Get authenticated user
         $pengguna = $request->user();
-        
+
         // Get filter parameters
         $tahun = $request->tahun ?? Carbon::now()->year;
         $bulan = $request->bulan ?? Carbon::now()->month;
-        
+
         // Get karyawan data
         $karyawanId = null;
         if ($pengguna->peran == 'karyawan') {
             $karyawan = Karyawan::where('pengguna_id', $pengguna->id)->first();
-            
+
             if (!$karyawan) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Data karyawan tidak ditemukan',
                 ], 404);
             }
-            
+
             $karyawanId = $karyawan->id;
         } else if ($request->has('karyawan_id')) {
             $karyawanId = $request->karyawan_id;
@@ -457,32 +457,32 @@ class AbsensiController extends Controller
         // Build query
         $startDate = Carbon::createFromDate($tahun, $bulan, 1)->startOfMonth();
         $endDate = Carbon::createFromDate($tahun, $bulan, 1)->endOfMonth();
-        
+
         $query = Absensi::whereBetween('tanggal', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
-        
+
         if ($karyawanId) {
             $query->where('karyawan_id', $karyawanId);
         }
-        
+
         // Get results
         $absensi = $query->get();
-        
+
         // Calculate statistics
         $totalHariKerja = $startDate->diffInDaysFiltered(function (Carbon $date) {
             return $date->isWeekday(); // Monday to Friday
         }, $endDate) + 1;
-        
+
         $totalHadir = $absensi->whereIn('status', ['hadir', 'terlambat'])->count();
         $totalTerlambat = $absensi->where('status', 'terlambat')->count();
         $totalIzin = $absensi->where('status', 'izin')->count();
         $totalSakit = $absensi->where('status', 'sakit')->count();
         $totalAlpha = $totalHariKerja - $totalHadir - $totalIzin - $totalSakit;
         $totalAlpha = $totalAlpha < 0 ? 0 : $totalAlpha;
-        
+
         // Calculate percentages
         $persentaseKehadiran = $totalHariKerja > 0 ? round(($totalHadir / $totalHariKerja) * 100, 2) : 0;
         $persentaseKeterlambatan = $totalHadir > 0 ? round(($totalTerlambat / $totalHadir) * 100, 2) : 0;
-        
+
         // Response data
         $reportData = [
             'periode' => $startDate->format('F Y'),
@@ -497,11 +497,11 @@ class AbsensiController extends Controller
             'persentase_kehadiran' => $persentaseKehadiran,
             'persentase_keterlambatan' => $persentaseKeterlambatan,
         ];
-        
+
         // Add karyawan details if requesting specific karyawan
         if ($karyawanId) {
             $karyawan = Karyawan::find($karyawanId);
-            
+
             if ($karyawan) {
                 $reportData['karyawan'] = [
                     'id' => $karyawan->id,
@@ -526,20 +526,20 @@ class AbsensiController extends Controller
     {
         // Earth radius in meters
         $earthRadius = 6371000;
-        
+
         // Convert latitude and longitude from degrees to radians
         $latFrom = deg2rad($lat1);
         $lonFrom = deg2rad($lon1);
         $latTo = deg2rad($lat2);
         $lonTo = deg2rad($lon2);
-        
+
         // Calculate differences
         $latDelta = $latTo - $latFrom;
         $lonDelta = $lonTo - $lonFrom;
-        
+
         // Haversine formula
         $angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) + cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
-        
+
         return $angle * $earthRadius;
     }
 }

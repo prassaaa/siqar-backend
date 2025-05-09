@@ -11,7 +11,7 @@ return [
             'driver' => 'session',
             'provider' => 'pengguna',
         ],
-        
+
         'api' => [
             'driver' => 'sanctum',
             'provider' => 'pengguna',
@@ -24,7 +24,7 @@ return [
             'driver' => 'eloquent',
             'model' => App\Models\User::class,
         ],
-        
+
         'pengguna' => [
             'driver' => 'eloquent',
             'model' => App\Models\Pengguna::class,
@@ -38,7 +38,7 @@ return [
             'expire' => 60,
             'throttle' => 60,
         ],
-        
+
         'pengguna' => [
             'provider' => 'pengguna',
             'table' => 'password_reset_tokens',

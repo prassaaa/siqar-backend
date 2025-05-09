@@ -22,10 +22,10 @@ class AuthController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'nama' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:mongodb.pengguna,email',
+            'email' => 'required|string|email|max:255|unique:pengguna,email',
             'password' => 'required|string|min:8|confirmed',
             'nama_lengkap' => 'required|string|max:255',
-            'nip' => 'required|string|max:20|unique:mongodb.karyawan,nip',
+            'nip' => 'required|string|max:20|unique:karyawan,nip',
             'jabatan' => 'required|string|max:100',
             'departemen' => 'required|string|max:100',
             'no_telepon' => 'required|string|max:15',
@@ -97,7 +97,7 @@ class AuthController extends Controller
     public function verifyOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email|exists:mongodb.pengguna,email',
+            'email' => 'required|email|exists:pengguna,email',
             'otp' => 'required|string|size:6',
         ]);
 
@@ -157,7 +157,7 @@ class AuthController extends Controller
     public function resendOtp(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email|exists:mongodb.pengguna,email',
+            'email' => 'required|email|exists:pengguna,email',
         ]);
 
         if ($validator->fails()) {
@@ -285,7 +285,7 @@ class AuthController extends Controller
     public function forgotPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|email|exists:mongodb.pengguna,email',
+            'email' => 'required|email|exists:pengguna,email',
         ]);
 
         if ($validator->fails()) {
@@ -393,7 +393,7 @@ class AuthController extends Controller
     public function profile(Request $request)
     {
         $pengguna = $request->user();
-        
+
         // Get karyawan data if user is karyawan
         $karyawanData = null;
         if ($pengguna->peran == 'karyawan') {
@@ -436,10 +436,10 @@ class AuthController extends Controller
     public function updateProfile(Request $request)
     {
         $pengguna = $request->user();
-        
+
         $validator = Validator::make($request->all(), [
             'nama' => 'sometimes|string|max:255',
-            'email' => 'sometimes|string|email|max:255|unique:mongodb.pengguna,email,' . $pengguna->id . ',_id',
+            'email' => 'sometimes|string|email|max:255|unique:pengguna,email,' . $pengguna->id,
             'foto_profil' => 'sometimes|image|mimes:jpeg,png,jpg|max:2048',
             'current_password' => 'sometimes|required_with:new_password',
             'new_password' => 'sometimes|string|min:8|confirmed',
@@ -479,13 +479,13 @@ class AuthController extends Controller
             $pengguna->email = $request->email;
             $pengguna->email_verified_at = null;
             $pengguna->status = 'nonaktif';
-            
+
             // Generate OTP for new email verification
             $otp = mt_rand(100000, 999999);
             $otpExpiry = Carbon::now()->addMinutes(10);
             $pengguna->otp = $otp;
             $pengguna->otp_expiry = $otpExpiry;
-            
+
             // Send OTP Email
             try {
                 Mail::send('emails.otp', ['otp' => $otp], function ($message) use ($request) {
@@ -513,28 +513,28 @@ class AuthController extends Controller
         // Update karyawan data if user is karyawan
         if ($pengguna->peran == 'karyawan') {
             $karyawan = Karyawan::where('pengguna_id', $pengguna->id)->first();
-            
+
             if ($karyawan) {
                 if ($request->has('nama_lengkap')) {
                     $karyawan->nama_lengkap = $request->nama_lengkap;
                 }
-                
+
                 if ($request->has('jabatan')) {
                     $karyawan->jabatan = $request->jabatan;
                 }
-                
+
                 if ($request->has('departemen')) {
                     $karyawan->departemen = $request->departemen;
                 }
-                
+
                 if ($request->has('no_telepon')) {
                     $karyawan->no_telepon = $request->no_telepon;
                 }
-                
+
                 if ($request->has('alamat')) {
                     $karyawan->alamat = $request->alamat;
                 }
-                
+
                 $karyawan->save();
             }
         }
