@@ -131,7 +131,8 @@ class AbsensiController extends Controller
             ->where('tanggal', $today)
             ->first();
 
-        $terlambat = false;
+        // Selalu tetapkan status ke 'hadir' tanpa memeriksa keterlambatan
+        $status = 'hadir';
 
         if ($request->tipe == 'masuk') {
             if ($absensi && $absensi->waktu_masuk) {
@@ -141,40 +142,6 @@ class AbsensiController extends Controller
                 ], 400);
             }
 
-            // Check if late with tolerance
-            // Perbaikan: Menggunakan nilai default dan memastikan format waktu benar
-            try {
-                // Gunakan format waktu yang konsisten
-                $jamMasukString = $lokasi->jam_masuk ?? '08:00:00';
-
-                // Pastikan format waktu benar
-                if (strlen($jamMasukString) <= 5) {
-                    // Jika hanya format 'HH:MM', tambahkan detik
-                    $jamMasukString = $jamMasukString . ':00';
-                }
-
-                $jamMasuk = Carbon::parse($jamMasukString);
-
-                // Tambahkan toleransi keterlambatan (misalnya 15 menit)
-                $toleransiMenit = $lokasi->toleransi_keterlambatan ?? 15;
-                $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
-
-                // Tentukan status terlambat jika melebihi jam masuk + toleransi
-                $terlambat = $now->gt($jamMasukDenganToleransi);
-
-                // Log untuk debugging
-                Log::info("Absensi Check:", [
-                    'jam_sekarang' => $now->format('H:i:s'),
-                    'jam_masuk' => $jamMasuk->format('H:i:s'),
-                    'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
-                    'terlambat' => $terlambat ? 'Ya' : 'Tidak'
-                ]);
-            } catch (\Exception $e) {
-                // Jika terjadi error dalam parsing waktu, catat di log dan gunakan nilai default
-                Log::error('Error parsing jam_masuk: ' . $e->getMessage());
-                $terlambat = false;
-            }
-
             if ($absensi) {
                 // Update existing record
                 $absensi->qrcode_id = $qrCode->id;
@@ -182,7 +149,7 @@ class AbsensiController extends Controller
                 $absensi->lokasi_masuk = $lokasi->nama_lokasi;
                 $absensi->latitude_masuk = $request->latitude;
                 $absensi->longitude_masuk = $request->longitude;
-                $absensi->status = $terlambat ? 'terlambat' : 'hadir';
+                $absensi->status = $status;
                 $absensi->save();
             } else {
                 // Create new record
@@ -194,13 +161,11 @@ class AbsensiController extends Controller
                     'lokasi_masuk' => $lokasi->nama_lokasi,
                     'latitude_masuk' => $request->latitude,
                     'longitude_masuk' => $request->longitude,
-                    'status' => $terlambat ? 'terlambat' : 'hadir',
+                    'status' => $status,
                 ]);
             }
 
-            $message = $terlambat ?
-                'Absensi masuk berhasil, tetapi Anda terlambat!' :
-                'Absensi masuk berhasil!';
+            $message = 'Absensi masuk berhasil!';
 
         } else { // keluar
             if (!$absensi) {
@@ -238,13 +203,6 @@ class AbsensiController extends Controller
                     'waktu_keluar' => $absensi->waktu_keluar ? $absensi->waktu_keluar->format('H:i:s') : null,
                     'status' => $absensi->status,
                     'lokasi' => $lokasi->nama_lokasi,
-                ],
-                'debug_info' => [
-                    'jam_sekarang' => $now->format('H:i:s'),
-                    'jam_masuk_asli' => $lokasi->jam_masuk ?? '08:00:00',
-                    'jam_masuk_dengan_toleransi' => isset($jamMasukDenganToleransi) ? $jamMasukDenganToleransi->format('H:i:s') : null,
-                    'toleransi_menit' => $toleransiMenit ?? 0,
-                    'terlambat' => $terlambat ? 'Ya' : 'Tidak'
                 ]
             ]
         ]);
@@ -365,35 +323,6 @@ class AbsensiController extends Controller
             $lokasi = Lokasi::find($qrCode->lokasi_id);
         }
 
-        // Tambahkan informasi jam masuk dan toleransi jika ada
-        $jamMasukInfo = null;
-        if ($lokasi && isset($lokasi->jam_masuk)) {
-            try {
-                $jamMasukString = $lokasi->jam_masuk;
-                if (strlen($jamMasukString) <= 5) {
-                    $jamMasukString = $jamMasukString . ':00';
-                }
-
-                $jamMasuk = Carbon::parse($jamMasukString);
-                $toleransiMenit = $lokasi->toleransi_keterlambatan ?? 15;
-                $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
-
-                $jamMasukInfo = [
-                    'jam_masuk' => $jamMasuk->format('H:i:s'),
-                    'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
-                    'toleransi_menit' => $toleransiMenit,
-                ];
-            } catch (\Exception $e) {
-                Log::error('Error parsing jam_masuk in today(): ' . $e->getMessage());
-                $jamMasukInfo = [
-                    'jam_masuk' => '08:00:00',
-                    'jam_masuk_dengan_toleransi' => '08:15:00',
-                    'toleransi_menit' => 15,
-                    'error' => 'Format jam tidak valid'
-                ];
-            }
-        }
-
         return response()->json([
             'status' => true,
             'data' => [
@@ -411,7 +340,6 @@ class AbsensiController extends Controller
                     'nama_lokasi' => $lokasi->nama_lokasi,
                     'alamat' => $lokasi->alamat,
                     'radius' => $lokasi->radius,
-                    'jam_masuk_info' => $jamMasukInfo,
                 ] : null,
                 'qrcode' => $qrCode ? [
                     'id' => $qrCode->id,
