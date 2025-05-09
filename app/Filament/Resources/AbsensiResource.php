@@ -38,12 +38,12 @@ class AbsensiResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('karyawan_id')
                             ->label('Karyawan')
-                            ->options(Karyawan::with('pengguna')->get()->pluck('nama_lengkap', '_id'))
+                            ->options(Karyawan::with('pengguna')->get()->pluck('nama_lengkap', '.id'))
                             ->searchable()
                             ->required(),
                         Forms\Components\Select::make('qrcode_id')
                             ->label('QR Code')
-                            ->options(QRCode::pluck('deskripsi', '_id'))
+                            ->options(QRCode::pluck('deskripsi', '.id'))
                             ->searchable(),
                         Forms\Components\DatePicker::make('tanggal')
                             ->required(),
@@ -136,7 +136,7 @@ class AbsensiResource extends Resource
                 SelectFilter::make('karyawan_id')
                     ->label('Karyawan')
                     ->options(function () {
-                        return Karyawan::with('pengguna')->get()->pluck('nama_lengkap', '_id')->toArray();
+                        return Karyawan::with('pengguna')->get()->pluck('nama_lengkap', '.id')->toArray();
                     })
                     ->searchable(),
             ])

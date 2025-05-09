@@ -17,11 +17,11 @@ class KaryawanResource extends Resource
     protected static ?string $model = Karyawan::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-users';
-    
+
     protected static ?string $navigationGroup = 'Manajemen Pengguna';
-    
+
     protected static ?string $navigationLabel = 'Karyawan';
-    
+
     protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
@@ -32,7 +32,7 @@ class KaryawanResource extends Resource
                     ->schema([
                         Forms\Components\Select::make('pengguna_id')
                             ->label('Akun Pengguna')
-                            ->options(Pengguna::where('peran', 'karyawan')->pluck('nama', '_id'))
+                            ->options(Pengguna::where('peran', 'karyawan')->pluck('nama', '.id'))
                             ->searchable()
                             ->required(),
                         Forms\Components\TextInput::make('nip')
@@ -146,7 +146,7 @@ class KaryawanResource extends Resource
             'edit' => Pages\EditKaryawan::route('/{record}/edit'),
         ];
     }
-    
+
     // public static function getWidgets(): array
     // {
     //     return [

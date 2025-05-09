@@ -44,7 +44,7 @@ class QRCodeResource extends Resource
                             ->required(),
                         Forms\Components\Select::make('lokasi_id')
                             ->label('Lokasi')
-                            ->options(Lokasi::where('status', 'aktif')->pluck('nama_lokasi', '_id'))
+                            ->options(Lokasi::where('status', 'aktif')->pluck('nama_lokasi', '.id'))
                             ->searchable()
                             ->required(),
                         Forms\Components\Select::make('status')

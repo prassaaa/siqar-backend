@@ -14,6 +14,12 @@ class ListAbsensis extends ListRecords
     {
         return [
             Actions\CreateAction::make(),
+        ];
+    }
+
+    protected function getHeaderWidgets(): array
+    {
+        return [
             AbsensiResource\Widgets\AbsensiChart::class,
         ];
     }
