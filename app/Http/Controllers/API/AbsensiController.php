@@ -11,6 +11,7 @@ use App\Models\Lokasi;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 
 class AbsensiController extends Controller
 {
@@ -19,6 +20,9 @@ class AbsensiController extends Controller
      */
     public function scanQR(Request $request)
     {
+        // Tambahkan logging untuk membantu debug
+        Log::info('Scan QR Request', $request->all());
+
         $validator = Validator::make($request->all(), [
             'qr_code' => 'required|string',
             'latitude' => 'required|numeric',
@@ -67,6 +71,9 @@ class AbsensiController extends Controller
             ], 404);
         }
 
+        // Logging QR Code dan lokasi untuk debug
+        Log::info('QR Code found', ['qr_code' => $qrCode]);
+
         // Check QR Code expiry
         $now = Carbon::now();
         $qrDate = Carbon::parse($qrCode->tanggal);
@@ -98,6 +105,9 @@ class AbsensiController extends Controller
                 'message' => 'Lokasi absensi tidak ditemukan',
             ], 404);
         }
+
+        // Logging lokasi untuk debug
+        Log::info('Lokasi found', ['lokasi' => $lokasi]);
 
         // Calculate distance between user location and attendance location
         $distance = $this->calculateDistance(
@@ -132,22 +142,38 @@ class AbsensiController extends Controller
             }
 
             // Check if late with tolerance
-            $jamMasuk = Carbon::parse($lokasi->jam_masuk ?? '08:00:00');
+            // Perbaikan: Menggunakan nilai default dan memastikan format waktu benar
+            try {
+                // Gunakan format waktu yang konsisten
+                $jamMasukString = $lokasi->jam_masuk ?? '08:00:00';
 
-            // Tambahkan toleransi keterlambatan (misalnya 15 menit)
-            $toleransiMenit = 15; // Sesuaikan sesuai kebijakan perusahaan
-            $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
+                // Pastikan format waktu benar
+                if (strlen($jamMasukString) <= 5) {
+                    // Jika hanya format 'HH:MM', tambahkan detik
+                    $jamMasukString = $jamMasukString . ':00';
+                }
 
-            // Tentukan status terlambat jika melebihi jam masuk + toleransi
-            $terlambat = $now->gt($jamMasukDenganToleransi);
+                $jamMasuk = Carbon::parse($jamMasukString);
 
-            // Log untuk debugging
-            \Log::info("Absensi Check:", [
-                'jam_sekarang' => $now->format('H:i:s'),
-                'jam_masuk' => $jamMasuk->format('H:i:s'),
-                'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
-                'terlambat' => $terlambat ? 'Ya' : 'Tidak'
-            ]);
+                // Tambahkan toleransi keterlambatan (misalnya 15 menit)
+                $toleransiMenit = $lokasi->toleransi_keterlambatan ?? 15;
+                $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
+
+                // Tentukan status terlambat jika melebihi jam masuk + toleransi
+                $terlambat = $now->gt($jamMasukDenganToleransi);
+
+                // Log untuk debugging
+                Log::info("Absensi Check:", [
+                    'jam_sekarang' => $now->format('H:i:s'),
+                    'jam_masuk' => $jamMasuk->format('H:i:s'),
+                    'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
+                    'terlambat' => $terlambat ? 'Ya' : 'Tidak'
+                ]);
+            } catch (\Exception $e) {
+                // Jika terjadi error dalam parsing waktu, catat di log dan gunakan nilai default
+                Log::error('Error parsing jam_masuk: ' . $e->getMessage());
+                $terlambat = false;
+            }
 
             if ($absensi) {
                 // Update existing record
@@ -342,15 +368,30 @@ class AbsensiController extends Controller
         // Tambahkan informasi jam masuk dan toleransi jika ada
         $jamMasukInfo = null;
         if ($lokasi && isset($lokasi->jam_masuk)) {
-            $jamMasuk = Carbon::parse($lokasi->jam_masuk);
-            $toleransiMenit = 15; // Sesuaikan dengan nilai di atas
-            $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
+            try {
+                $jamMasukString = $lokasi->jam_masuk;
+                if (strlen($jamMasukString) <= 5) {
+                    $jamMasukString = $jamMasukString . ':00';
+                }
 
-            $jamMasukInfo = [
-                'jam_masuk' => $jamMasuk->format('H:i:s'),
-                'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
-                'toleransi_menit' => $toleransiMenit,
-            ];
+                $jamMasuk = Carbon::parse($jamMasukString);
+                $toleransiMenit = $lokasi->toleransi_keterlambatan ?? 15;
+                $jamMasukDenganToleransi = $jamMasuk->copy()->addMinutes($toleransiMenit);
+
+                $jamMasukInfo = [
+                    'jam_masuk' => $jamMasuk->format('H:i:s'),
+                    'jam_masuk_dengan_toleransi' => $jamMasukDenganToleransi->format('H:i:s'),
+                    'toleransi_menit' => $toleransiMenit,
+                ];
+            } catch (\Exception $e) {
+                Log::error('Error parsing jam_masuk in today(): ' . $e->getMessage());
+                $jamMasukInfo = [
+                    'jam_masuk' => '08:00:00',
+                    'jam_masuk_dengan_toleransi' => '08:15:00',
+                    'toleransi_menit' => 15,
+                    'error' => 'Format jam tidak valid'
+                ];
+            }
         }
 
         return response()->json([
@@ -441,30 +482,48 @@ class AbsensiController extends Controller
         if ($request->hasFile('bukti')) {
             $file = $request->file('bukti');
             $fileName = time() . '_' . $file->getClientOriginalName();
-            $buktiPath = $file->storeAs('bukti-izin', $fileName, 'public');
+            try {
+                $buktiPath = $file->storeAs('bukti-izin', $fileName, 'public');
+            } catch (\Exception $e) {
+                Log::error('Error uploading bukti: ' . $e->getMessage());
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Gagal mengunggah bukti',
+                    'error' => $e->getMessage()
+                ], 500);
+            }
         }
 
         // Create absence record
-        $absensi = Absensi::create([
-            'karyawan_id' => $karyawan->id,
-            'tanggal' => $tanggal,
-            'status' => $request->status,
-            'keterangan' => $request->keterangan,
-            'bukti' => $buktiPath,
-        ]);
+        try {
+            $absensi = Absensi::create([
+                'karyawan_id' => $karyawan->id,
+                'tanggal' => $tanggal,
+                'status' => $request->status,
+                'keterangan' => $request->keterangan,
+                'bukti' => $buktiPath,
+            ]);
 
-        return response()->json([
-            'status' => true,
-            'message' => 'Pengajuan ' . $request->status . ' berhasil disimpan',
-            'data' => [
-                'absensi' => [
-                    'id' => $absensi->id,
-                    'tanggal' => $absensi->tanggal->format('Y-m-d'),
-                    'status' => $absensi->status,
-                    'keterangan' => $absensi->keterangan,
+            return response()->json([
+                'status' => true,
+                'message' => 'Pengajuan ' . $request->status . ' berhasil disimpan',
+                'data' => [
+                    'absensi' => [
+                        'id' => $absensi->id,
+                        'tanggal' => $absensi->tanggal->format('Y-m-d'),
+                        'status' => $absensi->status,
+                        'keterangan' => $absensi->keterangan,
+                    ]
                 ]
-            ]
-        ]);
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error creating absence record: ' . $e->getMessage());
+            return response()->json([
+                'status' => false,
+                'message' => 'Gagal menyimpan pengajuan',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
